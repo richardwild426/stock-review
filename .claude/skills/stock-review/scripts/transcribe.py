@@ -5,9 +5,13 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import shutil
 import subprocess
 import sys
 from pathlib import Path
+
+# Python 路径用于 FunASR（系统安装）
+FUNASR_PYTHON = "/Users/zvector/.local/share/mise/installs/python/3.12.12/bin/python3"
 
 
 def probe_video(video_path: Path) -> dict:
@@ -46,9 +50,9 @@ def try_ocr(video_path: Path, out_srt: Path) -> Path | None:
 
 
 def run_asr(video_path: Path, out_srt: Path, hotwords_path: Path | None) -> Path:
-    """Invoke FunASR paraformer-zh via CLI wrapper.
+    """Invoke FunASR paraformer-zh via subprocess (uses system Python 3.12).
 
-    Prerequisite: `pip install funasr modelscope` and model weights cached.
+    Prerequisite: FunASR installed in system Python.
     """
     out_srt.parent.mkdir(parents=True, exist_ok=True)
     wav_path = out_srt.with_suffix(".wav")
@@ -61,22 +65,54 @@ def run_asr(video_path: Path, out_srt: Path, hotwords_path: Path | None) -> Path
     if r.returncode != 0:
         raise RuntimeError(f"ffmpeg audio extract failed: {r.stderr[:500]}")
 
-    hotwords: list[str] = []
-    if hotwords_path and hotwords_path.exists():
-        hotwords = [line.strip() for line in hotwords_path.read_text().splitlines()
-                    if line.strip() and not line.startswith("#")]
+    # 使用临时文件输出 JSON（避免 FunASR 日志污染 stdout）
+    json_output = out_srt.with_suffix(".json")
 
-    # 使用 funasr python API
-    try:
-        from funasr import AutoModel
-    except ImportError as e:
-        raise RuntimeError("FunASR not installed; pip install funasr modelscope") from e
+    funasr_script = f'''
+import json
+import sys
+import logging
+from pathlib import Path
+from funasr import AutoModel
 
-    model = AutoModel(model="paraformer-zh", vad_model="fsmn-vad",
-                      punc_model="ct-punc")
-    res = model.generate(input=str(wav_path),
-                         hotword=" ".join(hotwords) if hotwords else None)
-    # res: list[{"key": ..., "text": ..., "sentence_info": [{"start","end","text"}, ...]}]
+# 禁用 FunASR 日志
+logging.getLogger("funasr").setLevel(logging.ERROR)
+logging.getLogger("root").setLevel(logging.ERROR)
+
+wav_path = sys.argv[1]
+json_output = sys.argv[2]
+hotwords_path = sys.argv[3] if len(sys.argv) > 3 else None
+
+hotwords = []
+if hotwords_path and Path(hotwords_path).exists():
+    hotwords = [line.strip() for line in Path(hotwords_path).read_text().splitlines()
+                if line.strip() and not line.startswith("#")]
+
+model = AutoModel(model="paraformer-zh", vad_model="fsmn-vad", punc_model="ct-punc", disable_update=True)
+res = model.generate(input=wav_path, hotword=" ".join(hotwords) if hotwords else None)
+
+with open(json_output, 'w') as f:
+    json.dump(res, f, ensure_ascii=False)
+'''
+
+    hotwords_arg = [str(hotwords_path)] if hotwords_path and hotwords_path.exists() else []
+    r = subprocess.run(
+        [FUNASR_PYTHON, "-c", funasr_script, str(wav_path), str(json_output), *hotwords_arg],
+        capture_output=True, text=True,
+    )
+    if r.returncode != 0:
+        wav_path.unlink(missing_ok=True)
+        json_output.unlink(missing_ok=True)
+        raise RuntimeError(f"FunASR failed: {r.stderr[:500]}")
+
+    # 从 JSON 文件读取结果
+    if not json_output.exists():
+        wav_path.unlink(missing_ok=True)
+        raise RuntimeError(f"FunASR output file not created")
+
+    res = json.loads(json_output.read_text())
+    json_output.unlink(missing_ok=True)
+
     _write_srt(res, out_srt)
     wav_path.unlink(missing_ok=True)
     return out_srt
@@ -93,14 +129,37 @@ def _write_srt(asr_result: list[dict], out_srt: Path) -> None:
     lines: list[str] = []
     idx = 1
     for item in asr_result:
-        for seg in item.get("sentence_info") or []:
-            start = seg.get("start", 0)
-            end = seg.get("end", start + 1000)
-            text = seg.get("text", "").strip()
-            if not text:
-                continue
-            lines.append(f"{idx}\n{fmt_ts(start)} --> {fmt_ts(end)}\n{text}\n")
-            idx += 1
+        # 支持两种格式: sentence_info (旧版) 或 timestamp (新版)
+        if "sentence_info" in item:
+            for seg in item.get("sentence_info") or []:
+                start = seg.get("start", 0)
+                end = seg.get("end", start + 1000)
+                text = seg.get("text", "").strip()
+                if not text:
+                    continue
+                lines.append(f"{idx}\n{fmt_ts(start)} --> {fmt_ts(end)}\n{text}\n")
+                idx += 1
+        elif "timestamp" in item:
+            # timestamp 格式: [[start, end], ...]
+            # 需要将 text 按词分割与 timestamp 对齐
+            timestamps = item.get("timestamp", [])
+            text = item.get("text", "")
+            if timestamps and text:
+                # 简单分割：假设每个 timestamp 对应一个词/短语
+                # 更精确的方法需要 FunASR 返回 sentence_info
+                words = text.split()
+                for i, (start, end) in enumerate(timestamps):
+                    if i < len(words):
+                        word = words[i] if i < len(words) else ""
+                        if word:
+                            lines.append(f"{idx}\n{fmt_ts(start)} --> {fmt_ts(end)}\n{word}\n")
+                            idx += 1
+        elif "text" in item:
+            # 只有文本没有时间戳，生成单条字幕
+            text = item.get("text", "").strip()
+            if text:
+                lines.append(f"{idx}\n00:00:00,000 --> 99:59:59,999\n{text}\n")
+                idx += 1
     out_srt.write_text("\n".join(lines), encoding="utf-8")
 
 

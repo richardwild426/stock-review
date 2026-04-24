@@ -6,18 +6,18 @@ biliup:
   mtime_tolerance_hours: 6                    # pubdate 与文件 mtime 允许偏差
 
 self:
-  mid: 0                                       # 运行前改为你的 B 站 UID
+  mid: 2233213                                       # 运行前改为你的 B 站 UID
   needs_cookie: true
   prefer_local: true
 
 ups:
   # 运行前改为你关注的 up 主列表
   - name: "示例 up 主 A"
-    mid: 0
-    needs_cookie: false
+    mid: 387668272
+    needs_cookie: true
 
 notify:
-  lark_chat_id: ""                            # 运行前填飞书"股市复盘"群 chat_id
+  lark_chat_id: "oc_4bc15508c294037df4ec0becbc8d0771"                            # 运行前填飞书"股市复盘"群 chat_id
   video_retention_days: 60
   max_message_chars: 30000
 

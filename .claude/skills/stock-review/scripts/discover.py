@@ -3,30 +3,90 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 import time
+import urllib.parse
 from pathlib import Path
 from typing import Any
 
 import httpx
 import yaml
 
-BILI_API = "https://api.bilibili.com/x/space/arc/search"
+BILI_API = "https://api.bilibili.com/x/space/wbi/arc/search"
+WBI_KEY_URL = "https://api.bilibili.com/x/web-interface/nav"
 
 
 class CookieExpired(Exception):
     pass
 
 
-def _call_bili_api(mid: int, count: int, cookie: str | None,
-                   timeout: float) -> dict[str, Any]:
-    headers = {"User-Agent":
-               "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-               "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"}
+def _get_wbi_keys(cookie: str | None, timeout: float) -> tuple[str, str]:
+    """获取 WBI 签名所需的 key 和 val（从 nav 接口）。"""
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                      "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+        "Referer": "https://www.bilibili.com/",
+    }
     if cookie:
         headers["Cookie"] = cookie
-    params = {"mid": mid, "ps": count, "pn": 1, "order": "pubdate"}
+    with httpx.Client(timeout=timeout, headers=headers) as client:
+        r = client.get(WBI_KEY_URL)
+        r.raise_for_status()
+        data = r.json()
+    if data.get("code") != 0:
+        raise RuntimeError(f"nav api error: {data}")
+    img = data["data"]["wbi_img"]
+    # key: img_url 的文件名去掉后缀，val: sub_url 的文件名去掉后缀
+    key = img["img_url"].split("/")[-1].split(".")[0]
+    val = img["sub_url"].split("/")[-1].split(".")[0]
+    return key, val
+
+
+def _wbi_sign(params: dict[str, Any], key: str, val: str) -> str:
+    """WBI 签名算法：字典序排序 + 特殊字符转义 + MD5 + 截取前32位。"""
+    # 排序参数
+    sorted_params = sorted(params.items())
+    # 拼接 query string
+    query = urllib.parse.urlencode(sorted_params)
+    # B站 WBI 需要对特殊字符进行替换（保持 % 编码一致性）
+    # 将 !'()* 替换为对应的 %XX 编码
+    query = query.replace("'", "%27").replace("!", "%21").replace("*", "%2A")
+    # 加上 val 后缀
+    to_sign = query + val
+    # MD5 截取前32位
+    md5 = hashlib.md5(to_sign.encode()).hexdigest()
+    return md5[:32]
+
+
+def _call_bili_api(mid: int, count: int, cookie: str | None,
+                   timeout: float) -> dict[str, Any]:
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                      "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+        "Referer": f"https://space.bilibili.com/{mid}/",
+    }
+    if cookie:
+        headers["Cookie"] = cookie
+
+    # 获取 WBI keys
+    wbi_key, wbi_val = _get_wbi_keys(cookie, timeout)
+
+    # 构建基础参数
+    params = {
+        "mid": mid,
+        "ps": count,
+        "pn": 1,
+        "order": "pubdate",
+        "platform": "web",
+        "web_location": 1550101,
+    }
+    # 添加 wts 时间戳
+    params["wts"] = int(time.time())
+    # 计算 w_rid 签名
+    params["w_rid"] = _wbi_sign(params, wbi_key, wbi_val)
+
     with httpx.Client(timeout=timeout, headers=headers) as client:
         r = client.get(BILI_API, params=params)
         r.raise_for_status()
