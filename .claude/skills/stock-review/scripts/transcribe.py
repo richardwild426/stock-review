@@ -5,13 +5,14 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import shutil
 import subprocess
 import sys
 from pathlib import Path
 
-# Python 路径用于 FunASR（系统安装）
-FUNASR_PYTHON = "/Users/zvector/.local/share/mise/installs/python/3.12.12/bin/python3"
+# FunASR Python 路径（可通过环境变量覆盖）
+FUNASR_PYTHON = os.environ.get("FUNASR_PYTHON", sys.executable)
 
 
 def probe_video(video_path: Path) -> dict:
