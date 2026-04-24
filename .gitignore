@@ -1,0 +1,27 @@
+# 运行时数据
+data/videos/
+data/subtitles/
+data/reports/
+data/state.json
+
+# 敏感凭证
+.claude/skills/stock-review/config/cookies.txt
+**/cookies.txt
+.env
+.env.*
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+
+# macOS
+.DS_Store
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
