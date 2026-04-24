@@ -1,0 +1,27 @@
+# 股市复盘工作流配置
+# 修改后不需要重启任何进程，脚本每次运行读取最新版本
+
+biliup:
+  base_dir: ~/Movies/bilive-recoder/backup    # biliup.rs 的录播落盘目录
+  mtime_tolerance_hours: 6                    # pubdate 与文件 mtime 允许偏差
+
+self:
+  mid: 0                                       # 运行前改为你的 B 站 UID
+  needs_cookie: true
+  prefer_local: true
+
+ups:
+  # 运行前改为你关注的 up 主列表
+  - name: "示例 up 主 A"
+    mid: 0
+    needs_cookie: false
+
+notify:
+  lark_chat_id: ""                            # 运行前填飞书"股市复盘"群 chat_id
+  video_retention_days: 60
+  max_message_chars: 30000
+
+discover:
+  per_up_fetch_count: 5                       # 每个 up 拉最近 N 条
+  http_timeout_seconds: 15
+  http_retries: 3
