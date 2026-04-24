@@ -10,8 +10,8 @@ dependencies = [
     "python-dateutil>=2.9",
 ]
 
-[tool.uv]
-dev-dependencies = [
+[dependency-groups]
+dev = [
     "pytest>=8.0",
     "pytest-mock>=3.12",
     "ruff>=0.5",
