@@ -149,6 +149,37 @@ grep -E "(base_dir|lark_chat_id)" references/up-list.yaml
 - **B站 API 风控**：建议使用本地录播作为主要输入源
 - **飞书权限**：确保 lark-cli 已配置且有群消息发送权限
 
+## 设计决策（Design Notes）
+
+### 为什么是「仓库即 Skill」
+本仓库直接作为 Claude Code Skill 分发：clone 到 `~/.claude/skills/stock-review/`
+即可使用，不再嵌套 `.claude/skills/<name>/`。SKILL 元数据、脚本、参考材料、
+配置和运行时数据全部位于仓库根。
+
+### 三级字幕提取策略
+- **L1 嵌入字幕**：ffmpeg 抽取字幕流（最快、零成本）
+- **L2 OCR**：RapidOCR 识别硬字幕（占位，未默认启用）
+- **L3 ASR**：FunASR 中文识别 + VAD + 标点恢复（兜底）
+
+`scripts/transcribe.py` 自动按 L1 → L3 降级。
+
+### B 站接入：本地录播优先
+WBI 签名虽实现，仍可能被风控。日常输入源以 biliup 本地录播扫描为主，
+URL / 单条作为补充。
+
+### 状态机
+`scripts/state.py` 维护 `data/state.json`，按 BVID 幂等推进：
+discovered → transcribed → analyzed → notified → done。
+失败标记 `*_err` 后跳过，下一轮重试。
+
+### 飞书发送阈值
+报告 ≤ `notify.max_message_chars` 走文本消息，超长走文件上传
+（通过 lark-im skill 的 `+send-file`）。
+
+### 数据目录归属
+`data/` 位于仓库根、git 忽略。Skill 假设「仓库根 == 工作根」——
+若部署到其他位置，需调整或在 `references/up-list.yaml` 中显式指定路径。
+
 ## License
 
 MIT
