@@ -27,7 +27,7 @@ pip install funasr modelscope torch torchaudio
 
 ```bash
 mkdir -p ~/.claude/skills
-git clone https://github.com/your-repo/stock-review.git ~/.claude/skills/stock-review
+git clone https://github.com/richardwild426/stock-review.git ~/.claude/skills/stock-review
 ```
 
 ### 3. 配置
