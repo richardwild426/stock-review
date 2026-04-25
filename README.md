@@ -23,21 +23,16 @@ pip install funasr modelscope torch torchaudio
 
 ### 2. 作为 Claude Code Skill 安装
 
-将本项目克隆到你的 Claude Code skills 目录：
+本仓库即 Skill，clone 到 Claude Code skills 目录：
 
 ```bash
-# 方式A：全局 skills 目录
 mkdir -p ~/.claude/skills
-cd ~/.claude/skills
-git clone https://github.com/your-repo/stock-review.git
-
-# 方式B：项目级 skills 目录
-cp -r stock-review /path/to/your-project/.claude/skills/
+git clone https://github.com/your-repo/stock-review.git ~/.claude/skills/stock-review
 ```
 
 ### 3. 配置
 
-编辑 `.claude/skills/stock-review/references/up-list.yaml`：
+编辑 `references/up-list.yaml`：
 
 ```yaml
 biliup:
@@ -70,48 +65,42 @@ notify:
 /stock-review /path/to/video.mp4      # 分析本地文件
 ```
 
-### Just 命令
-
-```bash
-# 自动扫描（launchd 每晚调用）
-just scan
-
-# 手动分析单条
-just analyze BVxxx
-just analyze https://bilibili.com/video/BVxxx
-just analyze /path/to/video.mp4
-```
-
 ### 命令行直接调用
 
 ```bash
 # 扫描本地录播
-python3 .claude/skills/stock-review/scripts/discover.py \
-  --config .claude/skills/stock-review/references/up-list.yaml \
+python3 scripts/discover.py \
+  --config references/up-list.yaml \
   --state-file data/state.json \
-  --cookies .claude/skills/stock-review/config/cookies.txt \
+  --cookies config/cookies.txt \
   --skip-api
 
 # 转录单个视频
-python3 .claude/skills/stock-review/scripts/transcribe.py video.mp4 \
+python3 scripts/transcribe.py video.mp4 \
   --out-dir data/subtitles
 ```
 
 ## 目录结构
 
 ```
-stock-review/
+stock-review/                ← 仓库根 == Skill 根
 ├── SKILL.md                 # Skill 定义（Claude Code 读取）
-├── references/
-│   ├── up-list.yaml         # 配置文件
-│   ├── review-prompt.md     # 分析模板
-│   └── funasr-hotwords.txt  # ASR 热词
+├── README.md
+├── pyproject.toml           # 依赖管理
+├── uv.lock
+├── .python-version
 ├── scripts/
 │   ├── discover.py          # 视频发现
 │   ├── transcribe.py        # 语音转录
 │   ├── fetch.py             # 视频下载
 │   └── state.py             # 状态管理
+├── references/
+│   ├── up-list.yaml         # 配置文件
+│   ├── review-prompt.md     # 分析模板
+│   ├── analysis-rubric.md   # 分析评分细则
+│   └── funasr-hotwords.txt  # ASR 热词
 ├── config/
+│   ├── cookies.txt.example  # cookies 模板
 │   └── cookies.txt          # B站 cookies（gitignore）
 └── data/                    # 数据目录（gitignore）
     ├── videos/
@@ -131,7 +120,7 @@ yt-dlp --version
 python3 -c "from funasr import AutoModel; print('OK')"
 
 # 检查配置
-grep -E "(base_dir|lark_chat_id)" .claude/skills/stock-review/references/up-list.yaml
+grep -E "(base_dir|lark_chat_id)" references/up-list.yaml
 ```
 
 ## 输出示例

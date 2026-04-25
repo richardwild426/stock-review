@@ -12,15 +12,8 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "pytest>=8.0",
-    "pytest-mock>=3.12",
     "ruff>=0.5",
 ]
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-pythonpath = [".claude/skills/stock-review"]
-addopts = "-v --tb=short"
 
 [tool.ruff]
 line-length = 100

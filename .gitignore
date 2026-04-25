@@ -5,7 +5,7 @@ data/reports/
 data/state.json
 
 # 敏感凭证
-.claude/skills/stock-review/config/cookies.txt
+config/cookies.txt
 **/cookies.txt
 .env
 .env.*
