@@ -30,10 +30,10 @@ mkdir -p ~/.claude/skills
 git clone https://github.com/richardwild426/stock-review.git ~/.claude/skills/stock-review
 ```
 
-**智能体一键安装**：将下面这段话发给你的 Claude Code / Codex 等智能体：
+**智能体一键安装**：将下面这段话发给你的智能体（Claude Code、Codex 等）：
 
 ```
-帮我安装 stock-review skill：clone https://github.com/richardwild426/stock-review.git 到 ~/.claude/skills/stock-review/
+以 skill/plugin 形式安装 https://github.com/richardwild426/stock-review.git，按你支持的插件安装机制处理。
 ```
 
 ### 3. 配置
