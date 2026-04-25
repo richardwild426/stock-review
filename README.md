@@ -9,6 +9,20 @@
 - **飞书推送**：自动发送到指定群聊
 - **多输入源**：本地录播扫描 + B站URL + 本地文件
 
+## 兼容性
+
+本 Skill 按 [Agent Skills 开放规范](https://agentskills.io/) 构建，兼容多种智能体：
+
+| 智能体 | 安装路径 |
+|--------|----------|
+| Claude Code | `~/.claude/skills/stock-review/` |
+| Cursor | `.agents/skills/stock-review/` |
+| VS Code Copilot | `.agents/skills/stock-review/` |
+| Codex | `~/.codex/skills/stock-review/` |
+| OpenHands, Goose, Junie 等 | 按各自 skills 目录规范 |
+
+详见 [Agent Skills Clients](https://agentskills.io/clients)。
+
 ## 安装
 
 ### 1. 系统依赖
@@ -90,7 +104,7 @@ python3 scripts/transcribe.py video.mp4 \
 
 ```
 stock-review/                ← 仓库根 == Skill 根
-├── SKILL.md                 # Skill 定义（Claude Code 读取）
+├── SKILL.md                 # Skill 定义（Agent Skills 规范）
 ├── README.md
 ├── pyproject.toml           # 依赖管理
 ├── uv.lock
@@ -103,8 +117,11 @@ stock-review/                ← 仓库根 == Skill 根
 ├── references/
 │   ├── up-list.yaml         # 配置文件
 │   ├── review-prompt.md     # 分析模板
+│   ├── workflow-detail.md   # 详细工作流程
 │   ├── analysis-rubric.md   # 分析评分细则
 │   └── funasr-hotwords.txt  # ASR 热词
+├── assets/
+│   └── report-template.md   # 报告输出模板
 ├── config/
 │   ├── cookies.txt.example  # cookies 模板
 │   └── cookies.txt          # B站 cookies（gitignore）
