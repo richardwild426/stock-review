@@ -30,6 +30,12 @@ mkdir -p ~/.claude/skills
 git clone https://github.com/richardwild426/stock-review.git ~/.claude/skills/stock-review
 ```
 
+**智能体一键安装**：将下面这段话发给你的 Claude Code / Codex 等智能体：
+
+```
+帮我安装 stock-review skill：clone https://github.com/richardwild426/stock-review.git 到 ~/.claude/skills/stock-review/
+```
+
 ### 3. 配置
 
 编辑 `references/up-list.yaml`：
