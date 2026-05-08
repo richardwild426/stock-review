@@ -19,16 +19,24 @@ metadata:
 
 ## Workflow
 
-### scan 模式
+### Scan Mode
+
+#### Configuration Check
 1. 检查配置：`references/up-list.yaml` 的 `biliup.base_dir` 和 `notify.lark_chat_id`
+
+#### Video Discovery
 2. 运行发现：`scripts/discover.py --config references/up-list.yaml --state-file data/state.json --cookies config/cookies.txt --skip-api`
+
+#### Video Processing
 3. 对每条视频：
    - 标记 discovered → 调用 `scripts/transcribe.py` → 标记 transcribed
    - 读取字幕，结合 `references/review-prompt.md` 生成报告
    - 通过 lark-im skill 发送飞书消息
+
+#### Summary and Notification
 4. 汇总结果发送飞书
 
-### 单条模式
+### Single Video Mode
 - 本地路径：直接调用 `scripts/transcribe.py`
 - B站 URL：用 yt-dlp 下载后处理
 
