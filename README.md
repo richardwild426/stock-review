@@ -4,10 +4,11 @@
 
 ## 功能
 
+- **运行环境**：Python 3.11（见 `.python-version`）
 - **语音转录**：FunASR 高速中文 ASR（10分钟音频约22秒）
-- **结构化摘要**：大盘/板块/操作/纪律四维度分析
+- **结构化摘要**：大盘/外围/板块/纪律/明日 五段分析
 - **飞书推送**：自动发送到指定群聊
-- **多输入源**：本地录播扫描 + B站URL + 本地文件
+- **输入源**：本地录播目录批量扫描；单条支持本地文件或 B 站 URL（yt-dlp 下载）
 
 ## 兼容性
 
@@ -58,18 +59,18 @@ git clone https://github.com/richardwild426/stock-review.git ~/.claude/skills/st
 biliup:
   base_dir: ~/Movies/bilive-recoder/backup  # 本地录播目录
 
-self:
-  mid: 你的B站UID
-  needs_cookie: true
-
 notify:
   lark_chat_id: "oc_xxxxxx"  # 飞书群 chat_id
+  max_message_chars: 30000
+
+discover:
+  max_retries: 3                            # 失败次数上限
 ```
 
-创建 B站 cookies 文件（用于下载私密视频）：
+可选——B 站 cookies（仅在用 yt-dlp 下载需要登录可见的视频时用到）：
 
 ```bash
-# 使用 Chrome 扩展 "Get cookies.txt LOCALLY" 导出
+# 用 Chrome 扩展 "Get cookies.txt LOCALLY" 导出
 # 保存到 config/cookies.txt（Netscape 格式）
 ```
 
@@ -77,12 +78,12 @@ notify:
 
 ### Claude Code 中触发
 
-在 Claude Code 对话中直接说：
+本 Skill 通过 description 关键词自动匹配，没有注册 slash 命令。在对话里用自然语言触发即可：
 
 ```
-/stock-review scan                    # 扫描本地录播目录批量处理
-/stock-review https://bilibili.com/video/BVxxx  # 分析单个B站视频
-/stock-review /path/to/video.mp4      # 分析本地文件
+复盘 scan                                      # 扫描本地录播目录批量处理
+复盘 https://www.bilibili.com/video/BVxxx     # 分析单个B站视频
+复盘 /path/to/video.mp4                       # 分析本地文件
 ```
 
 ### 命令行直接调用
@@ -91,13 +92,12 @@ notify:
 # 扫描本地录播
 python3 scripts/discover.py \
   --config references/up-list.yaml \
-  --state-file data/state.json \
-  --cookies config/cookies.txt \
-  --skip-api
+  --state-file data/state.json
 
 # 转录单个视频
 python3 scripts/transcribe.py video.mp4 \
-  --out-dir data/subtitles
+  --out-dir data/subtitles \
+  --hotwords references/funasr-hotwords.txt
 ```
 
 ## 目录结构
@@ -110,9 +110,8 @@ stock-review/                ← 仓库根 == Skill 根
 ├── uv.lock
 ├── .python-version
 ├── scripts/
-│   ├── discover.py          # 视频发现
-│   ├── transcribe.py        # 语音转录
-│   ├── fetch.py             # 视频下载
+│   ├── discover.py          # 本地录播扫描
+│   ├── transcribe.py        # 语音转录（FunASR）
 │   └── state.py             # 状态管理
 ├── references/
 │   ├── up-list.yaml         # 配置文件
@@ -149,28 +148,34 @@ grep -E "(base_dir|lark_chat_id)" references/up-list.yaml
 ## 输出示例
 
 ```markdown
-## [2026-04-24] 复盘 & 实盘公开
+# [2026-04-24] 复盘
 
-## 大盘
-创业板跌2%拉回，权重小票未跌，缩量但盘面结构好转...
+## 一、当日大盘整体研判
+创业板跌 2.1% 收 2780，权重小票未跌，量能较前日缩 12%。结构性赚钱效应延续...
 
-## 板块
-1. **电力**：近期大涨，建议已买减仓锁定利润...
-2. **创新药**：ETF抛盘冲击，不要大跌第一天加仓...
+## 二、外围联动分析
+（字幕未提及，省略）
 
-## 操作
-1. 单方向仓位不超20%
-2. 大跌放量不要第一天加仓
+## 三、各板块逐条复盘
+1. **电力**：当日 +3.4%，主线持续性强，建议已买仓位减半锁定利润，关键支撑 X.XX...
+2. **创新药**：ETF 抛盘冲击 -2%，逻辑未破但情绪降温，不要大跌第一天加仓...
 
-## 核心纪律
-1. "不会超过20%，超过多的我都觉得算重仓了"
+## 四、实操买卖纪律
+1. 单方向仓位不超 20%
+2. 大跌放量不要第一天加仓，等缩量再分批
+
+## 五、明日重点 + 后市展望
+关注煤炭板块能否放量突破，触发条件：上证指数站稳 3200。
 ```
+
+报告完整结构与字数要求详见 `references/review-prompt.md`。
 
 ## 注意事项
 
-- **FunASR 首次运行**：需下载约2-3GB模型，耐心等待
-- **B站 API 风控**：建议使用本地录播作为主要输入源
+- **FunASR 首次运行**：需下载约 2-3GB 模型，耐心等待
+- **录播来源**：依赖 [biliup.rs](https://github.com/biliup/biliup-rs) 一类工具自动落盘到 `biliup.base_dir`；脚本只负责扫描与转录
 - **飞书权限**：确保 lark-cli 已配置且有群消息发送权限
+- **重跑失败条目**：`retry_count` 达到 `discover.max_retries` 后 discover 不再返回，需手工编辑 `data/state.json` 把对应 `retry_count` 清零
 
 ## 设计决策（Design Notes）
 
@@ -186,14 +191,19 @@ grep -E "(base_dir|lark_chat_id)" references/up-list.yaml
 
 `scripts/transcribe.py` 自动按 L1 → L3 降级。
 
-### B 站接入：本地录播优先
-WBI 签名虽实现，仍可能被风控。日常输入源以 biliup 本地录播扫描为主，
-URL / 单条作为补充。
+### 不再走 B 站 API
+之前实现过 WBI 签名拉某 up 投稿列表，签名规则会随 B 站更新失效，长期维护成本
+太高。当前只保留两条路径：
+- 主路径：`biliup.rs` 把直播录播持续落到 `biliup.base_dir`，discover 扫描
+- 单条：B 站视频 URL 由 `yt-dlp` 下载
+
+如需重新接入 API，再按需补回（当前脚本已不带任何 B 站 API 代码）。
 
 ### 状态机
-`scripts/state.py` 维护 `data/state.json`，按 BVID 幂等推进：
-discovered → transcribed → analyzed → notified → done。
-失败标记 `*_err` 后跳过，下一轮重试。
+`scripts/state.py` 维护 `data/state.json`，按 key 幂等推进：
+`discovered → transcribed → analyzed → notified → done`。
+失败标记 `*_err` 后 `retry_count++`；达到 `discover.max_retries` 后 discover
+不再返回。
 
 ### 飞书发送阈值
 报告 ≤ `notify.max_message_chars` 走文本消息，超长走文件上传

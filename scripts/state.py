@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -17,7 +17,7 @@ VALID_STATUSES = {
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
+    return datetime.now(UTC).astimezone().isoformat(timespec="seconds")
 
 
 def _load(path: Path) -> dict[str, dict[str, Any]]:
@@ -50,8 +50,8 @@ def cmd_mark(args: argparse.Namespace) -> int:
         entry["report_path"] = args.report
     if args.error is not None:
         entry["error"] = args.error
-        if args.status.endswith("_err"):
-            entry["retry_count"] = entry.get("retry_count", 0) + 1
+    if args.status.endswith("_err"):
+        entry["retry_count"] = entry.get("retry_count", 0) + 1
     state[args.key] = entry
     _save(args.state_file, state)
     return 0

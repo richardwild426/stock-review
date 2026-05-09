@@ -3,25 +3,11 @@
 
 biliup:
   base_dir: ~/Movies/bilive-recoder/backup    # biliup.rs 的录播落盘目录
-  mtime_tolerance_hours: 6                    # pubdate 与文件 mtime 允许偏差
-
-self:
-  mid: 12345678                                       # 运行前改为你的 B 站 UID
-  needs_cookie: true
-  prefer_local: true
-
-ups:
-  # 运行前改为你关注的 up 主列表
-  - name: "示例 up 主 A"
-    mid: 98765432
-    needs_cookie: false
 
 notify:
-  lark_chat_id: "oc_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"  # 运行前填飞书指定要发送的群 chat_id
-  video_retention_days: 60
-  max_message_chars: 30000
+  lark_chat_id: "oc_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"  # 飞书目标群 chat_id
+  video_retention_days: 60                              # 旧报告保留天数（清理用）
+  max_message_chars: 30000                              # 文本消息阈值，超长发文件
 
 discover:
-  per_up_fetch_count: 5                       # 每个 up 拉最近 N 条
-  http_timeout_seconds: 15
-  http_retries: 3
+  max_retries: 3   # 失败次数上限；超过则视为永久失败、不再重新返回

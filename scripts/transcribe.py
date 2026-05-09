@@ -6,7 +6,6 @@ import argparse
 import hashlib
 import json
 import os
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -51,9 +50,11 @@ def try_ocr(video_path: Path, out_srt: Path) -> Path | None:
 
 
 def run_asr(video_path: Path, out_srt: Path, hotwords_path: Path | None) -> Path:
-    """Invoke FunASR paraformer-zh via subprocess (uses system Python 3.12).
+    """Invoke FunASR paraformer-zh via subprocess.
 
-    Prerequisite: FunASR installed in system Python.
+    Uses sys.executable by default; override with FUNASR_PYTHON to point at
+    a separate interpreter where funasr/torch are installed (avoids
+    polluting the project venv).
     """
     out_srt.parent.mkdir(parents=True, exist_ok=True)
     wav_path = out_srt.with_suffix(".wav")
@@ -69,14 +70,13 @@ def run_asr(video_path: Path, out_srt: Path, hotwords_path: Path | None) -> Path
     # 使用临时文件输出 JSON（避免 FunASR 日志污染 stdout）
     json_output = out_srt.with_suffix(".json")
 
-    funasr_script = f'''
+    funasr_script = '''
 import json
 import sys
 import logging
 from pathlib import Path
 from funasr import AutoModel
 
-# 禁用 FunASR 日志
 logging.getLogger("funasr").setLevel(logging.ERROR)
 logging.getLogger("root").setLevel(logging.ERROR)
 
@@ -89,10 +89,16 @@ if hotwords_path and Path(hotwords_path).exists():
     hotwords = [line.strip() for line in Path(hotwords_path).read_text().splitlines()
                 if line.strip() and not line.startswith("#")]
 
-model = AutoModel(model="paraformer-zh", vad_model="fsmn-vad", punc_model="ct-punc", disable_update=True)
-res = model.generate(input=wav_path, hotword=" ".join(hotwords) if hotwords else None)
+model = AutoModel(
+    model="paraformer-zh",
+    vad_model="fsmn-vad",
+    punc_model="ct-punc",
+    disable_update=True,
+)
+res = model.generate(input=wav_path,
+                     hotword=" ".join(hotwords) if hotwords else None)
 
-with open(json_output, 'w') as f:
+with open(json_output, "w") as f:
     json.dump(res, f, ensure_ascii=False)
 '''
 
@@ -109,7 +115,7 @@ with open(json_output, 'w') as f:
     # 从 JSON 文件读取结果
     if not json_output.exists():
         wav_path.unlink(missing_ok=True)
-        raise RuntimeError(f"FunASR output file not created")
+        raise RuntimeError("FunASR output file not created")
 
     res = json.loads(json_output.read_text())
     json_output.unlink(missing_ok=True)
@@ -130,7 +136,8 @@ def _write_srt(asr_result: list[dict], out_srt: Path) -> None:
     lines: list[str] = []
     idx = 1
     for item in asr_result:
-        # 支持两种格式: sentence_info (旧版) 或 timestamp (新版)
+        # paraformer-zh + punc_model 通常返回 sentence_info；
+        # 没有的话退化为整段无时间戳字幕。
         if "sentence_info" in item:
             for seg in item.get("sentence_info") or []:
                 start = seg.get("start", 0)
@@ -140,23 +147,7 @@ def _write_srt(asr_result: list[dict], out_srt: Path) -> None:
                     continue
                 lines.append(f"{idx}\n{fmt_ts(start)} --> {fmt_ts(end)}\n{text}\n")
                 idx += 1
-        elif "timestamp" in item:
-            # timestamp 格式: [[start, end], ...]
-            # 需要将 text 按词分割与 timestamp 对齐
-            timestamps = item.get("timestamp", [])
-            text = item.get("text", "")
-            if timestamps and text:
-                # 简单分割：假设每个 timestamp 对应一个词/短语
-                # 更精确的方法需要 FunASR 返回 sentence_info
-                words = text.split()
-                for i, (start, end) in enumerate(timestamps):
-                    if i < len(words):
-                        word = words[i] if i < len(words) else ""
-                        if word:
-                            lines.append(f"{idx}\n{fmt_ts(start)} --> {fmt_ts(end)}\n{word}\n")
-                            idx += 1
         elif "text" in item:
-            # 只有文本没有时间戳，生成单条字幕
             text = item.get("text", "").strip()
             if text:
                 lines.append(f"{idx}\n00:00:00,000 --> 99:59:59,999\n{text}\n")
